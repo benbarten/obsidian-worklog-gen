@@ -81,6 +81,8 @@ func categorizeTitles(titles []string) map[string][]string {
 		"features":        {},
 		"bugs":            {},
 		"planning/design": {},
+		"documentation":   {},
+		"reviews":         {},
 		"other":           {},
 	}
 
@@ -92,6 +94,10 @@ func categorizeTitles(titles []string) map[string][]string {
 			categories["bugs"] = append(categories["bugs"], title)
 		} else if strings.HasPrefix(titleLower, "plan") || strings.HasPrefix(titleLower, "design") {
 			categories["planning/design"] = append(categories["planning/design"], title)
+		} else if strings.HasPrefix(titleLower, "doc") || strings.HasPrefix(titleLower, "docs") {
+			categories["documentation"] = append(categories["documentation"], title)
+		} else if strings.HasPrefix(titleLower, "review") {
+			categories["reviews"] = append(categories["reviews"], title)
 		} else {
 			categories["other"] = append(categories["other"], title)
 		}

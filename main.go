@@ -150,8 +150,14 @@ func summarizeByCategory(categories map[string][]string, apiKey string) (map[str
 		}
 
 		itemsList := strings.Join(titles, "\n- ")
-		prompt := fmt.Sprintf("Please rewrite each of the following items in the category '%s' to be more concise and clear, but keep each item as a separate point without combining them:\n\n- %s",
-			category, itemsList)
+		prompt := fmt.Sprintf(`As an expert software engineer with strong communication skills, write a concise technical summary of the following items in the '%s' category. 
+Focus on technical impact, architectural decisions, and engineering outcomes. Write in a clear, professional tone suitable for team communication or management updates.
+Keep it brief but informative, highlighting key technical achievements and challenges.
+
+Items to summarize:
+%s
+
+Format your response as a brief technical summary paragraph, followed by key bullet points if needed.`, category, itemsList)
 
 		resp, err := client.CreateChatCompletion(
 			ctx,
@@ -232,11 +238,22 @@ func buildMarkdownSummary(summaries map[string][]string, year int, week int) str
 			continue
 		}
 
-		sb.WriteString(fmt.Sprintf("%s\n", category))
-		for _, bullet := range bullets {
-			sb.WriteString(fmt.Sprintf("- %s\n", bullet))
+		sb.WriteString(fmt.Sprintf("### %s\n\n", strings.Title(category)))
+
+		// First bullet is the summary paragraph
+		if len(bullets) > 0 {
+			sb.WriteString(bullets[0])
+			sb.WriteString("\n\n")
 		}
-		sb.WriteString("\n")
+
+		// Remaining bullets are key points
+		if len(bullets) > 1 {
+			sb.WriteString("**Key Points:**\n")
+			for _, bullet := range bullets[1:] {
+				sb.WriteString(fmt.Sprintf("- %s\n", bullet))
+			}
+			sb.WriteString("\n")
+		}
 	}
 
 	return sb.String()

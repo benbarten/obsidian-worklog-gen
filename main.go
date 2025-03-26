@@ -76,7 +76,7 @@ func extractColumnItems(content string, columnName string) ([]string, error) {
 	return items, nil
 }
 
-func categorizeTitles(titles []string) map[string][]string {
+func categorizeByTags(titles []string) map[string][]string {
 	categories := map[string][]string{
 		"features":        {},
 		"bugs":            {},
@@ -87,18 +87,47 @@ func categorizeTitles(titles []string) map[string][]string {
 	}
 
 	for _, title := range titles {
-		titleLower := strings.ToLower(title)
-		if strings.HasPrefix(titleLower, "feat") || strings.HasPrefix(titleLower, "feature") {
-			categories["features"] = append(categories["features"], title)
-		} else if strings.HasPrefix(titleLower, "bug") {
-			categories["bugs"] = append(categories["bugs"], title)
-		} else if strings.HasPrefix(titleLower, "plan") || strings.HasPrefix(titleLower, "design") {
-			categories["planning/design"] = append(categories["planning/design"], title)
-		} else if strings.HasPrefix(titleLower, "doc") || strings.HasPrefix(titleLower, "docs") {
-			categories["documentation"] = append(categories["documentation"], title)
-		} else if strings.HasPrefix(titleLower, "review") {
-			categories["reviews"] = append(categories["reviews"], title)
-		} else {
+		// Extract all hashtags from the title
+		words := strings.Fields(title)
+		var tags []string
+		for _, word := range words {
+			if strings.HasPrefix(word, "#") {
+				tags = append(tags, strings.ToLower(strings.TrimPrefix(word, "#")))
+			}
+		}
+
+		// If no tags found, put in other category
+		if len(tags) == 0 {
+			categories["other"] = append(categories["other"], title)
+			continue
+		}
+
+		// Use the first matching tag to categorize
+		categorized := false
+		for _, tag := range tags {
+			switch tag {
+			case "build", "feat", "feature":
+				categories["features"] = append(categories["features"], title)
+				categorized = true
+			case "bug":
+				categories["bugs"] = append(categories["bugs"], title)
+				categorized = true
+			case "plan", "design":
+				categories["planning/design"] = append(categories["planning/design"], title)
+				categorized = true
+			case "doc", "docs":
+				categories["documentation"] = append(categories["documentation"], title)
+				categorized = true
+			case "review":
+				categories["reviews"] = append(categories["reviews"], title)
+				categorized = true
+			}
+			if categorized {
+				break
+			}
+		}
+
+		if !categorized {
 			categories["other"] = append(categories["other"], title)
 		}
 	}
@@ -271,36 +300,7 @@ func main() {
 		log.Printf("INFO: Found %d cards in column '%s'", len(items), *column)
 	}
 
-	categories := categorizeTitles(items)
-
-	err = os.MkdirAll(*outputFolder, 0755)
-	if err != nil {
-		log.Fatalf("ERROR: Failed to create output folder: %v", err)
-	}
-
-	log.Printf("INFO: Saving categorized items to %s", *outputFolder)
-	for category, categoryItems := range categories {
-		if len(categoryItems) == 0 {
-			continue
-		}
-
-		categoryFile := fmt.Sprintf("%s/%s_items.txt", *outputFolder, category)
-		file, err := os.Create(categoryFile)
-		if err != nil {
-			log.Fatalf("ERROR: Failed to create category file: %v", err)
-		}
-
-		for i, item := range categoryItems {
-			_, err := fmt.Fprintf(file, "%d. %s\n", i+1, item)
-			if err != nil {
-				file.Close()
-				log.Fatalf("ERROR: Failed to write to category file: %v", err)
-			}
-		}
-
-		file.Close()
-		log.Printf("INFO: Saved %d items in category '%s'", len(categoryItems), category)
-	}
+	categories := categorizeByTags(items)
 
 	if *apiKey == "" {
 		*apiKey = os.Getenv("OPENAI_API_KEY")

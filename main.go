@@ -83,6 +83,7 @@ func categorizeByTags(titles []string) map[string][]string {
 		"planning/design": {},
 		"documentation":   {},
 		"reviews":         {},
+		"learning":        {},
 		"other":           {},
 	}
 
@@ -120,6 +121,9 @@ func categorizeByTags(titles []string) map[string][]string {
 				categorized = true
 			case "review":
 				categories["reviews"] = append(categories["reviews"], title)
+				categorized = true
+			case "learn":
+				categories["learning"] = append(categories["learning"], title)
 				categorized = true
 			}
 			if categorized {

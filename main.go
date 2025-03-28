@@ -83,6 +83,7 @@ func categorizeByTags(titles []string) map[string][]string {
 		"planning/design": {},
 		"documentation":   {},
 		"reviews":         {},
+		"meetings":        {},
 		"learning":        {},
 		"other":           {},
 	}
@@ -121,6 +122,9 @@ func categorizeByTags(titles []string) map[string][]string {
 				categorized = true
 			case "review":
 				categories["reviews"] = append(categories["reviews"], title)
+				categorized = true
+			case "meet", "meeting":
+				categories["meetings"] = append(categories["meetings"], title)
 				categorized = true
 			case "learn":
 				categories["learning"] = append(categories["learning"], title)
@@ -387,6 +391,6 @@ func main() {
 		totalItems += len(items)
 	}
 
-	worklogFilename := fmt.Sprintf("worklog-week-%d-%d.md", currentWeek, currentYear)
+	worklogFilename := fmt.Sprintf("%d-%d.md", currentWeek, currentYear)
 	log.Printf("SUCCESS: Summarized %d items to %s/%s", totalItems, *outputFolder, worklogFilename)
 }

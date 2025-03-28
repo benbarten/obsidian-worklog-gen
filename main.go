@@ -139,14 +139,26 @@ func categorizeByTags(titles []string) map[string][]string {
 	return categories
 }
 
-func summarizeByCategory(categories map[string][]string, apiKey string) (map[string][]string, error) {
+func summarizeByCategory(categories map[string][]string, apiKey string, aiAssisted bool) (map[string][]string, error) {
+	result := make(map[string][]string)
+
+	if !aiAssisted {
+		for category, titles := range categories {
+			if len(titles) == 0 {
+				continue
+			}
+
+			result[category] = titles
+		}
+		return result, nil
+	}
+
 	if apiKey == "" {
-		return nil, fmt.Errorf("OpenAI API key is required")
+		return nil, fmt.Errorf("OpenAI API key is required for AI-assisted summarization")
 	}
 
 	client := openai.NewClient(apiKey)
 	ctx := context.Background()
-	result := make(map[string][]string)
 
 	for category, titles := range categories {
 		if len(titles) == 0 {
@@ -232,7 +244,7 @@ func extractBulletPoints(text string) []string {
 	return bullets
 }
 
-func buildMarkdownSummary(summaries map[string][]string, year int, week int) string {
+func buildMarkdownSummary(summaries map[string][]string, year int, week int, aiAssisted bool) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("## Week %d %d\n\n", week, year))
@@ -244,17 +256,22 @@ func buildMarkdownSummary(summaries map[string][]string, year int, week int) str
 
 		sb.WriteString(fmt.Sprintf("### %s\n\n", strings.Title(category)))
 
-		// First bullet is the summary paragraph
-		if len(bullets) > 0 {
-			sb.WriteString(bullets[0])
-			sb.WriteString("\n\n")
-		}
+		if aiAssisted {
+			if len(bullets) > 0 {
+				sb.WriteString(bullets[0])
+				sb.WriteString("\n\n")
+			}
 
-		// Remaining bullets are key points
-		if len(bullets) > 1 {
-			sb.WriteString("**Key Points:**\n")
-			for _, bullet := range bullets[1:] {
-				sb.WriteString(fmt.Sprintf("- %s\n", bullet))
+			if len(bullets) > 1 {
+				sb.WriteString("**Key Points:**\n")
+				for _, bullet := range bullets[1:] {
+					sb.WriteString(fmt.Sprintf("- %s\n", bullet))
+				}
+				sb.WriteString("\n")
+			}
+		} else {
+			for _, item := range bullets {
+				sb.WriteString(fmt.Sprintf("- %s\n", item))
 			}
 			sb.WriteString("\n")
 		}
@@ -288,6 +305,7 @@ func main() {
 	column := flag.String("column", "", "Column to summarize")
 	outputFolder := flag.String("output-folder", "", "Folder to write the summary")
 	apiKey := flag.String("api-key", "", "OpenAI API key (can also be set via OPENAI_API_KEY env var)")
+	aiAssisted := flag.Bool("ai-assisted", false, "Use AI to generate summaries (requires OpenAI API key)")
 
 	flag.Parse()
 
@@ -323,16 +341,20 @@ func main() {
 
 	categories := categorizeByTags(items)
 
-	if *apiKey == "" {
-		*apiKey = os.Getenv("OPENAI_API_KEY")
+	if *aiAssisted {
 		if *apiKey == "" {
-			log.Println("ERROR: No OpenAI API key provided. Skipping summary generation.")
-			os.Exit(1)
+			*apiKey = os.Getenv("OPENAI_API_KEY")
+			if *apiKey == "" {
+				log.Println("ERROR: No OpenAI API key provided. Required for AI-assisted mode.")
+				os.Exit(1)
+			}
 		}
+		log.Println("INFO: Generating AI-assisted summaries using OpenAI API")
+	} else {
+		log.Println("INFO: Generating simple category-based summaries")
 	}
 
-	log.Println("INFO: Generating summaries using OpenAI API")
-	summaries, err := summarizeByCategory(categories, *apiKey)
+	summaries, err := summarizeByCategory(categories, *apiKey, *aiAssisted)
 	if err != nil {
 		log.Fatalf("ERROR: Failed to generate summaries: %v", err)
 	}
@@ -353,7 +375,7 @@ func main() {
 	_, currentWeek := time.Now().ISOWeek()
 
 	log.Printf("INFO: Building worklog summary for week %d, %d", currentWeek, currentYear)
-	summary := buildMarkdownSummary(summaries, currentYear, currentWeek)
+	summary := buildMarkdownSummary(summaries, currentYear, currentWeek, *aiAssisted)
 
 	err = saveWorklog(*outputFolder, currentYear, currentWeek, summary)
 	if err != nil {
